@@ -28,62 +28,102 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  File? _selectedImage;
-  File? _resultImage;
+  File? _modelImage;   // 人物照片
+  File? _garmentImage; // 衣服照片
+  File? _resultImage;  // 换装结果（未来接 API 后才有）
   bool _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
 
-  // 选择照片
-  Future<void> _pickImage() async {
+  Future<void> _pickModelImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        _selectedImage = File(image.path);
-        _resultImage = null;
+        _modelImage = File(image.path);
       });
     }
   }
 
-  // 上传照片到后端做姿态侦测
-  Future<void> _uploadImage() async {
-    if (_selectedImage == null) return;
+  Future<void> _pickGarmentImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _garmentImage = File(image.path);
+      });
+    }
+  }
 
-    setState(() {
-      _isLoading = true;
-    });
+  // 之后要接 Replicate API 的地方，现在先留空显示提示
+  Future<void> _startTryOn() async {
+  if (_modelImage == null || _garmentImage == null) return;
 
-    try {
-      // 注意：这里的网址之后要改成你电脑的实际 IP
-      var uri = Uri.parse("http://192.168.1.11:8000/detect-pose");
-      var request = http.MultipartRequest('POST', uri);
-      request.files.add(
-        await http.MultipartFile.fromPath('file', _selectedImage!.path),
-      );
+  setState(() {
+    _isLoading = true;
+  });
 
-      var response = await request.send();
+  try {
+    var uri = Uri.parse("http://192.168.100.14:8000/try-on");
+    var request = http.MultipartRequest('POST', uri);
+    request.files.add(
+      await http.MultipartFile.fromPath('model_file', _modelImage!.path),
+    );
+    request.files.add(
+      await http.MultipartFile.fromPath('garment_file', _garmentImage!.path),
+    );
 
-      if (response.statusCode == 200) {
-        var bytes = await response.stream.toBytes();
-        final tempFile = File('${_selectedImage!.path}_result.png');
-        await tempFile.writeAsBytes(bytes);
-        setState(() {
-          _resultImage = tempFile;
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('上传失败，请检查后端服务器')),
-        );
-      }
-    } catch (e) {
+    var response = await request.send();
+
+    if (response.statusCode == 200) {
+      var bytes = await response.stream.toBytes();
+      final tempFile = File('${_modelImage!.path}_tryon_result.png');
+      await tempFile.writeAsBytes(bytes);
+      setState(() {
+        _resultImage = tempFile;
+      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发生错误：$e')),
+        const SnackBar(content: Text('换装失败，请检查后端服务器')),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('发生错误：$e')),
+    );
+  }
 
-    setState(() {
-      _isLoading = false;
-    });
+  setState(() {
+    _isLoading = false;
+  });
+}
+
+  Widget _buildImagePicker({
+    required String title,
+    required File? image,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 160,
+            height: 200,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: image == null
+                ? const Center(child: Icon(Icons.add_a_photo, size: 40))
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(image, fit: BoxFit.cover),
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -95,24 +135,41 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              if (_selectedImage != null)
-                Image.file(_selectedImage!, height: 250),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _pickImage,
-                child: const Text('选择照片'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildImagePicker(
+                    title: '模特照片',
+                    image: _modelImage,
+                    onTap: _pickModelImage,
+                  ),
+                  _buildImagePicker(
+                    title: '衣服照片',
+                    image: _garmentImage,
+                    onTap: _pickGarmentImage,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _selectedImage == null ? null : _uploadImage,
-                child: const Text('上传并侦测姿态'),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: (_modelImage != null && _garmentImage != null)
+                    ? _startTryOn
+                    : null,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('开始换装'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               if (_isLoading) const CircularProgressIndicator(),
               if (_resultImage != null) ...[
-                const Text('处理结果：'),
+                const Text('换装结果：', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Image.file(_resultImage!, height: 250),
+                Image.file(_resultImage!, height: 300),
               ],
             ],
           ),

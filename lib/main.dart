@@ -28,9 +28,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  File? _modelImage;   // 人物照片
-  File? _garmentImage; // 衣服照片
-  File? _resultImage;  // 换装结果（未来接 API 后才有）
+  File? _modelImage;   // Photo of the model/person
+  File? _garmentImage; // Photo of the garment
+  File? _resultImage;  // Try-on result (populated once the API call succeeds)
   bool _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 之后要接 Replicate API 的地方，现在先留空显示提示
+  // Calls the backend, which in turn calls the Replicate API
   Future<void> _startTryOn() async {
   if (_modelImage == null || _garmentImage == null) return;
 
@@ -82,12 +82,12 @@ class _HomePageState extends State<HomePage> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('换装失败，请检查后端服务器')),
+        const SnackBar(content: Text('Try-on failed, please check the backend server')),
       );
     }
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('发生错误：$e')),
+      SnackBar(content: Text('An error occurred: $e')),
     );
   }
 
@@ -129,7 +129,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 换装 App')),
+      appBar: AppBar(title: const Text('AI Try-On App')),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -139,12 +139,12 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildImagePicker(
-                    title: '模特照片',
+                    title: 'Model photo',
                     image: _modelImage,
                     onTap: _pickModelImage,
                   ),
                   _buildImagePicker(
-                    title: '衣服照片',
+                    title: 'Garment photo',
                     image: _garmentImage,
                     onTap: _pickGarmentImage,
                   ),
@@ -156,7 +156,7 @@ class _HomePageState extends State<HomePage> {
                     ? _startTryOn
                     : null,
                 icon: const Icon(Icons.auto_awesome),
-                label: const Text('开始换装'),
+                label: const Text('Start Try-On'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -167,7 +167,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 24),
               if (_isLoading) const CircularProgressIndicator(),
               if (_resultImage != null) ...[
-                const Text('换装结果：', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Try-On Result:', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Image.file(_resultImage!, height: 300),
               ],
